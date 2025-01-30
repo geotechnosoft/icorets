@@ -22,7 +22,7 @@ class StockRegisterReport(models.AbstractModel):
             'valign': 'vcenter'})
 
         number_format = workbook.add_format({'num_format': '#,###.00', 'bold': 0,
-            'border': 1, 'align': 'right',})
+                                             'border': 1, 'align': 'right', })
 
         # List of all headers extracted from the image
         headers1 = [
@@ -30,7 +30,7 @@ class StockRegisterReport(models.AbstractModel):
             "Gender", "Age group", "Title", "Marketplace Tittle", "Composition / Material", "Technology / Features",
             "Event", "HSN Code", "Style Code", "Article Code", "SKU", "EAN Code", "ASIN",
             "FSIN", "Myntra", "AJIO", "Fancode", "Swiggy",
-            "Bigbasket", "Blinkit", "Zepto", "Colour", "Size", "MRP", "GST",
+            "Bigbasket", "Blinkit", "Zepto", "Colour", "Size", "MRP", "GST", "Opening Average Value",
 
         ]
         company = self.env.company
@@ -68,8 +68,8 @@ class StockRegisterReport(models.AbstractModel):
             worksheet.write(0, header_col, 'Closing ' + location.complete_name, style_header1)
             header_col += 1
 
-        headers4 = ["Total Qty Closing", "Closing Stock Value(Excluding Taxes)",
-                                         "Sales Quotation Qty", "Confirmed SO Qty(Not Invoiced)",
+        headers4 = ["Total Qty Closing", "Total Qty Odoo Closing", "Closing Stock Value(Excluding Taxes)",
+                    "Sales Quotation Qty", "Confirmed SO Qty(Not Invoiced)",
                     "Free To Use",
 
                     "PO Receipt Pending(GRN)", "PO Receipt Pending(Bills)", "Average Rate (Excl GST)",
@@ -147,7 +147,18 @@ class StockRegisterReport(models.AbstractModel):
             worksheet.write(row, 28, search_product.lst_price or ' ', )
             worksheet.write(row, 29, ''.join(
                 [str(x) for x in search_product.taxes_id.name]) if search_product.taxes_id else '' or ' ', )
-            col = 30
+
+            stock_valuation = self.env['stock.valuation.layer'].search(
+                [('product_id', '=', search_product.id), ('create_date', '<', report.from_date)])
+            total_qty = sum(stock_valuation.mapped('quantity'))
+            total_val = sum(stock_valuation.mapped('value'))
+            if total_qty > 0:
+                average_value = round(total_val/total_qty)
+            else:
+                average_value = 0
+            worksheet.write(row, 30, average_value or 0, )
+            col = 31
+
             total_qty = 0
             for location in locations:
                 loc_qty_available = search_product.with_context(
@@ -166,7 +177,8 @@ class StockRegisterReport(models.AbstractModel):
             # purchase return
             worksheet.write(row, col, data[rec][1] or 0, number_format)
             col += 1
-            worksheet.write(row, col, f'=IFERROR({cols[col - 2]}{row + 1}-{cols[col - 1]}{row + 1}, 0)' or 0, number_format)
+            worksheet.write(row, col, f'=IFERROR({cols[col - 2]}{row + 1}-{cols[col - 1]}{row + 1}, 0)' or 0,
+                            number_format)
             col += 1
 
             # Avg Purchase Unit Exl
@@ -184,9 +196,11 @@ class StockRegisterReport(models.AbstractModel):
             else:
                 worksheet.write(row, col, data[rec][2] or 0, number_format)
                 col += 1
-            worksheet.write(row, col, f'=IFERROR({cols[col - 3]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0, number_format)
+            worksheet.write(row, col, f'=IFERROR({cols[col - 3]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0,
+                            number_format)
             col += 1
-            worksheet.write(row, col, f'=IFERROR({cols[col - 4]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0, number_format)
+            worksheet.write(row, col, f'=IFERROR({cols[col - 4]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0,
+                            number_format)
             col += 1
 
             # sales section
@@ -197,7 +211,8 @@ class StockRegisterReport(models.AbstractModel):
             worksheet.write(row, col, data[rec][4] or 0, number_format)
             col += 1
 
-            worksheet.write(row, col, f'=IFERROR({cols[col-2]}{row + 1}-{cols[col-1]}{row + 1}, 0)' or 0, number_format)
+            worksheet.write(row, col, f'=IFERROR({cols[col - 2]}{row + 1}-{cols[col - 1]}{row + 1}, 0)' or 0,
+                            number_format)
             col += 1
             # Avg sales Unit Exl
             if isinstance(data[rec][5], list):
@@ -214,9 +229,11 @@ class StockRegisterReport(models.AbstractModel):
             else:
                 worksheet.write(row, col, data[rec][5] or 0, number_format)
                 col += 1
-            worksheet.write(row, col, f'=IFERROR({cols[col-3]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0, number_format)
+            worksheet.write(row, col, f'=IFERROR({cols[col - 3]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0,
+                            number_format)
             col += 1
-            worksheet.write(row, col, f'=IFERROR({cols[col-4]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0, number_format)
+            worksheet.write(row, col, f'=IFERROR({cols[col - 4]}{row + 1}*{cols[col - 2]}{row + 1}, 0)' or 0,
+                            number_format)
             col += 1
 
             # location wise closing stock value
@@ -231,13 +248,19 @@ class StockRegisterReport(models.AbstractModel):
 
             worksheet.write(row, col, total_closing_qty or 0, number_format)
             col += 1
+
+            odoo_product_closing_stock = search_product.with_context(
+                    {'to_date': report.to_date}).qty_available
+            worksheet.write(row, col, odoo_product_closing_stock, number_format)
+            col += 1
+
             # Closing Stock Value(Excluding Taxes)
             worksheet.write(row, col, 0 or 0, number_format)
             col += 1
 
             worksheet.write(row, col, data[rec][7] or 0, number_format)
             col += 1
-            #Todo: Confirmed SO Qty(Not Invoiced)
+            # Todo: Confirmed SO Qty(Not Invoiced)
             worksheet.write(row, col, data[rec][6] or 0, number_format)
             col += 1
 
@@ -247,18 +270,18 @@ class StockRegisterReport(models.AbstractModel):
 
             worksheet.write(row, col, data[rec][8], number_format)
             col += 1
-            #todo: PO Receipt Pending(Bills)
+            # todo: PO Receipt Pending(Bills)
             worksheet.write(row, col, data[rec][9], number_format)
             col += 1
             if isinstance(data[rec][10], list):
                 if data[rec][10][1] != 0 and data[rec][10][0] != 0:
-                    worksheet.write(row, col, data[rec][10][1]/data[rec][10][0], number_format)
+                    worksheet.write(row, col, data[rec][10][1] / data[rec][10][0], number_format)
                     col += 1
                 else:
                     worksheet.write(row, col, 0, number_format)
                     col += 1
                 if data[rec][10][2] != 0 and data[rec][10][0] != 0:
-                    worksheet.write(row, col, data[rec][10][2]/data[rec][10][0], number_format)
+                    worksheet.write(row, col, data[rec][10][2] / data[rec][10][0], number_format)
                     col += 1
                 else:
                     worksheet.write(row, col, 0, number_format)
@@ -275,11 +298,9 @@ class StockRegisterReport(models.AbstractModel):
 
             row += 1
 
-
         # print("---data---", data)
 
     def get_report_data(self, report_data, locations):
-        print("get_report_data is working")
         # Implement your custom logic to fetch data from the database
         # For this example, we are assuming that the data is stored in a variable called 'data'
         all_data = {}
@@ -305,12 +326,12 @@ class StockRegisterReport(models.AbstractModel):
             sale_line_confirm_qty_by_product = {data['product_id'][0]: data['qty_to_invoice'] for data in
                                                 sale_line_confirm_qty}
 
-            #Todo: Sales Done For current
+            # Todo: Sales Done For current
             sale_line_done_confirm_qty = sale_line_confirm.read_group([('id', 'in', sale_line_confirm.ids)],
-                                                                 ['product_id', 'qty_delivered'],
-                                                                 ['product_id'])
+                                                                      ['product_id', 'qty_delivered'],
+                                                                      ['product_id'])
             sale_line_done_qty_by_product = {data['product_id'][0]: data['qty_delivered'] for data in
-                                                sale_line_done_confirm_qty}
+                                             sale_line_done_confirm_qty}
 
             # sale quotation quantities by product
 
@@ -328,7 +349,6 @@ class StockRegisterReport(models.AbstractModel):
                                                                      ['product_id'])
             sale_line_quotation_qty_by_product = {data['product_id'][0]: data['product_uom_qty'] for data in
                                                   sale_line_quotation_qty}
-
 
             # Purchase Receipt Pending Quantity
             receipts = stock_moves.search(
@@ -355,7 +375,7 @@ class StockRegisterReport(models.AbstractModel):
                                                            ['product_id'])
             purchase_bills_qty_by_product = {data['product_id'][0]: data['quantity'] for data in
                                              purchase_bills_qty}
-            #Todo : Purchase qty and bills
+            # Todo : Purchase qty and bills
             purchase_pending_bills = self.env['purchase.order.line'].search(
                 [('product_id.categ_id.id', 'in', category),
                  ('order_id.date_order', '>=',
@@ -365,17 +385,17 @@ class StockRegisterReport(models.AbstractModel):
                  ('state', 'in', ['done', 'purchase'])
                  ])
             po_pending_bills = purchase_pending_bills.read_group([('id', 'in', purchase_pending_bills.ids)],
-                                                           ['product_id', 'qty_to_invoice',],
-                                                           ['product_id'])
-            po_pending_bills_qty_by_product = {data['product_id'][0]: data['qty_to_invoice'] for data in
-                                             po_pending_bills}
-
-            #Todo : Purchase Done For Current
-            po_done_qty = purchase_pending_bills.read_group([('id', 'in', purchase_pending_bills.ids)],
-                                                                 ['product_id', 'qty_received', ],
+                                                                 ['product_id', 'qty_to_invoice', ],
                                                                  ['product_id'])
+            po_pending_bills_qty_by_product = {data['product_id'][0]: data['qty_to_invoice'] for data in
+                                               po_pending_bills}
+
+            # Todo : Purchase Done For Current
+            po_done_qty = purchase_pending_bills.read_group([('id', 'in', purchase_pending_bills.ids)],
+                                                            ['product_id', 'qty_received', ],
+                                                            ['product_id'])
             po_done_qty_by_product = {data['product_id'][0]: data['qty_received'] for data in
-                                               po_done_qty}
+                                      po_done_qty}
 
             # purchase debit notes qty
             purchase_debit_notes = self.env['account.move.line'].search([('product_id.categ_id.id', 'in', category),
@@ -469,8 +489,6 @@ class StockRegisterReport(models.AbstractModel):
                 ]
                 for svl_pro in valuations.mapped('product_id')
             }
-
-
 
             # final dictinry
             all_keys = set().union(purchase_bills_qty_by_product, purchase_debit_qty_by_product,
