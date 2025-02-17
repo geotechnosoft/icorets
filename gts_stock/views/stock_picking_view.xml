@@ -13,11 +13,13 @@
             </xpath>
             <xpath expr="//sheet/group/group[1]/field[@name='location_id']" position="after">
                 <field name="warehouse_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="bulk_return_id" invisible="1"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="view_bulk_return_picking"
-                        string="Return Picking"
+                        string="Return"
                         type="object"
+                        attrs="{'invisible': [('bulk_return_id', '=', False)]}"
                         class="oe_stat_button">
                 </button>
             </xpath>
