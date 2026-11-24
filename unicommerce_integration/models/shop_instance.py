@@ -113,8 +113,8 @@ class ShopInstance(models.Model):
                     [('name', '=', 'Stock'), ('location_id', '=', stock_location.id)], limit=1
                 )
 
-        # Keep using the common Sales Journal configured on the Sales Channel (same as before)
-        sale_journal = channel_sudo.sale_journal_id if channel_sudo else False
+        # Use Facility Mapping's Sales Journal first, then fall back to Sales Channel's journal, then branch/parent default
+        sale_journal = mapping.sale_journal_id or (channel_sudo.sale_journal_id if channel_sudo else False)
         if not sale_journal:
             sale_journal = self.env['account.journal'].sudo().search(
                 [('type', '=', 'sale'), ('company_id', 'in', company.parent_ids.ids)], limit=1
@@ -744,10 +744,10 @@ class ShopInstance(models.Model):
             if channel and not channel.is_no_invoice:
                 invoice_vals = so_branch._prepare_invoice()
                 invoice_vals['company_id'] = branch_company.id
-                if channel.sale_journal_id:
-                    invoice_vals['journal_id'] = channel.sale_journal_id.id
-                elif so_branch.journal_id:
+                if so_branch.journal_id:
                     invoice_vals['journal_id'] = so_branch.journal_id.id
+                elif channel.sale_journal_id:
+                    invoice_vals['journal_id'] = channel.sale_journal_id.id
                 lst = [
                     (0, 0, so_order_line.sudo().with_company(branch_company)._prepare_invoice_line())
                     for so_order_line in so_branch.order_line
