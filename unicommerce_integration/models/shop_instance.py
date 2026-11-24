@@ -381,7 +381,7 @@ class ShopInstance(models.Model):
                 'billing_name': billing_addr.get('name'),
                 'billing_addressLine1': billing_addr.get('addressLine1'),
                 'billing_addressLine2': billing_addr.get('addressLine2'),
-                'billing_city ': billing_addr.get('city'),
+                'billing_city': billing_addr.get('city'),
                 'billing_district': billing_addr.get('district'),
                 'billing_state': billing_addr.get('state'),
                 'billing_country': billing_addr.get('country'),
@@ -625,7 +625,6 @@ class ShopInstance(models.Model):
                     vals_list['location_id'] = location.id
                 if sale_journal:
                     vals_list['journal_id'] = sale_journal.id
-                    vals_list['l10n_in_journal_id'] = sale_journal.id
 
                 logger.info(vals_list)
                 sale_order = self.env['sale.order'].sudo().with_company(branch_company).create(vals_list)
