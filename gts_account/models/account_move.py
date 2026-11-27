@@ -9,7 +9,7 @@ class AccountMove(models.Model):
     _inherit = 'account.move'
 
     # POD and Logistics Fields
-    pod_document_id = fields.Binary(string="POD Document", attachment=False)
+    pod_document_id = fields.Binary(string="POD Document", attachment=True)
     pod_document_name = fields.Char(string="POD Document Name")
     customer_appointment_date = fields.Date(string="Customer Appointment Date")
     transporter_name = fields.Char(string="Transporter Name")
